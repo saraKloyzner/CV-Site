@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "service": {
+      "commandName": "Project"
+    },
+    "Profile 1": {
+      "commandName": "Executable",
+      "executablePath": "GitHub.API"
+    }
+  }
+}
