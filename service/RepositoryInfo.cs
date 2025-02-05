@@ -14,5 +14,6 @@ namespace Service
         public int StarCount { get; set; }
         public int PullRequestCount { get; set; }
         public string HtmlUrl { get; set; }
+       
     }
 }

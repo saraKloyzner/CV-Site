@@ -10,3 +10,4 @@ E:\תכנות\תשפד\פרקטיקוד\PractiCode\service\obj\Debug\net6.0\Serv
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\service\obj\Debug\net6.0\refint\Service.dll
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\service\obj\Debug\net6.0\Service.pdb
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\service\obj\Debug\net6.0\ref\Service.dll
+E:\תכנות\תשפד\פרקטיקוד\PractiCode\service\obj\Debug\net6.0\Service.sourcelink.json

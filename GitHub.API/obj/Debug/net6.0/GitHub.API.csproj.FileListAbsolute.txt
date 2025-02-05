@@ -41,3 +41,4 @@ E:\תכנות\תשפד\פרקטיקוד\PractiCode\GitHub.API\bin\Debug\net6.0\O
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\GitHub.API\bin\Debug\net6.0\System.Diagnostics.DiagnosticSource.dll
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\GitHub.API\bin\Debug\net6.0\Service.dll
 E:\תכנות\תשפד\פרקטיקוד\PractiCode\GitHub.API\bin\Debug\net6.0\Service.pdb
+E:\תכנות\תשפד\פרקטיקוד\PractiCode\GitHub.API\obj\Debug\net6.0\GitHub.API.sourcelink.json

@@ -1,57 +1,32 @@
-//var builder = WebApplication.CreateBuilder(args);
-
-//// Add services to the container.
-
-//builder.Services.AddControllers();
-//// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-//builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
-
-//var app = builder.Build();
-
-//// Configure the HTTP request pipeline.
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseSwagger();
-//    app.UseSwaggerUI();
-//}
-
-//app.UseHttpsRedirection();
-
-//app.UseAuthorization();
-
-//app.MapControllers();
-
-//app.Run();
-
-
 using Service;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// הוספת הגדרות (Options) מהקובץ appsettings.json או מה-user secrets
-builder.Services.Configure<GitHubService>(builder.Configuration.GetSection("GitHubSettings"));
-
-// הוספת In-Memory Caching (לשימוש מאוחר יותר)
+builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHubSettings"));
 builder.Services.AddMemoryCache();
-
-// רישום השירותים (נרשם בהמשך)
 builder.Services.AddScoped<IGitHubService, GitHubService>();
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "GitHub API", Version = "v1" });
+});
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GitHub API v1"));
 }
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();

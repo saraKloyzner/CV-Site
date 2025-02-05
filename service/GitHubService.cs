@@ -12,112 +12,91 @@ namespace Service
 {
     public class GitHubService : IGitHubService
     {
-        
         private readonly GitHubClient _client;
-        private readonly GitHubSettings _settings;
-        private readonly IConfiguration _configuration;
-        private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
-        private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(10);
+        private readonly IMemoryCache _cache;
+        private readonly string _userName; // שמתקבל מה-UserSecrets/Configuration
 
-
-
-        public Task<string> GetRepositoriesAsync()
+        public GitHubService(IMemoryCache memoryCache, IOptions<GitHubSettings> options)
         {
-            throw new NotImplementedException();
-        }
+            _cache = memoryCache;
+            var settings = options.Value;
+            _userName = settings.UserName;
 
-
-        public GitHubService(IOptions<GitHubSettings> options, IMemoryCache cache)
-        {
-            _settings = options.Value;
-            _cache = cache;
-
-            // אתחול ה-GitHubClient עם User-Agent ייחודי
             _client = new GitHubClient(new ProductHeaderValue("CVSiteApp"));
-
-            // אם יש טוקן, נבצע הזדהות
-            if (!string.IsNullOrWhiteSpace(_settings.Token))
+            if (!string.IsNullOrWhiteSpace(settings.Token))
             {
-                _client.Credentials = new Credentials(_settings.Token);
+                _client.Credentials = new Credentials(settings.Token);
             }
         }
 
         public async Task<IEnumerable<RepositoryInfo>> GetPortfolioAsync()
         {
-            // נסה לבדוק אם יש תוצאות בקאש
-            if (_cache.TryGetValue("Portfolio", out IEnumerable<RepositoryInfo> cachedPortfolio))
+            // בדיקה אם הנתונים בקאש
+            if (_cache.TryGetValue("Portfolio", out IEnumerable<RepositoryInfo> portfolio))
             {
-                // ניתן להוסיף כאן לוגיקה לבדיקה אם יש עדכונים ב-GitHub – אתגר הפרויקט
-                return cachedPortfolio;
+                return portfolio;
             }
 
-            // שליפת רשימת ה-repositories מהמשתמש
-            var repositories = await _client.Repository.GetAllForUser(_settings.UserName);
+            var repositories = await _client.Repository.GetAllForUser(_userName);
+            var repoInfos = new List<RepositoryInfo>();
 
-            // יצירת רשימת מידע מותאם לכל repository
-            var portfolio = new List<RepositoryInfo>();
             foreach (var repo in repositories)
             {
-                // שליפת שפת הפיתוח העיקרית
-                string language = repo.Language;
-
-                // שליפת commit אחרון – לדוגמה, נשלוף את ה-commit מהבראנץ' הראשי (master/main)
+                // שליפת commit אחרון – לדוגמה מהבראנצ' הראשי (main/master)
                 var commits = await _client.Repository.Commit.GetAll(repo.Owner.Login, repo.Name);
-                var lastCommit = commits?.FirstOrDefault()?.Commit.Author.Date.UtcDateTime ?? DateTime.MinValue;
+                DateTime lastCommit = commits.FirstOrDefault()?.Commit.Author.Date.UtcDateTime ?? DateTime.MinValue;
 
-                // שליפת כמות ה-star
-                int starCount = repo.StargazersCount;
-
-                // שליפת מספר pull requests – ניתן לבצע שאילתה פשוטה (כאן נעשה קריאה לא סימטרית, ניתן לייעל לפי הצורך)
+                // שליפת pull requests
                 var pullRequests = await _client.PullRequest.GetAllForRepository(repo.Owner.Login, repo.Name);
-                int prCount = pullRequests.Count();
 
-                portfolio.Add(new RepositoryInfo
+                repoInfos.Add(new RepositoryInfo
                 {
                     Name = repo.Name,
-                    Language = language,
+                    Language = repo.Language,
                     LastCommit = lastCommit,
-                    StarCount = starCount,
-                    PullRequestCount = prCount,
+                    StarCount = repo.StargazersCount,
+                    PullRequestCount = pullRequests.Count,
                     HtmlUrl = repo.HtmlUrl
                 });
             }
 
-            // שמירת התוצאה ב-In-Memory Cache
-            _cache.Set("Portfolio", portfolio, _cacheExpiration);
+            // שמירת התוצאה בקאש למשך 10 דקות
+            _cache.Set("Portfolio", repoInfos, TimeSpan.FromMinutes(10));
+            return repoInfos;
+        }
 
-            return portfolio;
+        public async Task<RepositoryInfo> GetRepositoryDetailsAsync(string repoName)
+        {
+            // אפשר להשתמש במידע מהפורטפוליו הקיים ולסנן את הפריט המתאים
+            var portfolio = await GetPortfolioAsync();
+            return portfolio.FirstOrDefault(r => r.Name.Equals(repoName, StringComparison.OrdinalIgnoreCase));
         }
 
         public async Task<IEnumerable<RepositoryInfo>> SearchRepositoriesAsync(string name = null, string language = null, string userName = null)
         {
-            // הכנה של מחרוזת החיפוש לפי הפרמטרים – יש להתאים לפי התיעוד של Octokit
-            string query = string.Empty;
-            if (!string.IsNullOrWhiteSpace(name))
-                query += name + " ";
-            if (!string.IsNullOrWhiteSpace(language))
-                query += "language:" + language + " ";
-            if (!string.IsNullOrWhiteSpace(userName))
-                query += "user:" + userName + " ";
+            // בניית שאילתה לפי הפרמטרים
+            string query = $"{(name ?? "")} {(language != null ? "language:" + language : "")} {(userName != null ? "user:" + userName : "")}".Trim();
 
-            var request = new SearchRepositoriesRequest(query)
-            {
-                // ניתן להוסיף הגדרות נוספות לפי הצורך
-            };
-
+            var request = new SearchRepositoriesRequest(query);
             var result = await _client.Search.SearchRepo(request);
 
-            var repositories = result.Items.Select(repo => new RepositoryInfo
+            // המרה למודל שלנו
+            return result.Items.Select(repo => new RepositoryInfo
             {
                 Name = repo.Name,
                 Language = repo.Language,
-                LastCommit = DateTime.MinValue, // כאן צריך להוסיף לוגיקה לשליפת commit אחרון, אם נדרש
+                LastCommit = DateTime.MinValue, // במידה ונדרש – ניתן להוסיף לוגיקה לשליפת commit אחרון
                 StarCount = repo.StargazersCount,
-                PullRequestCount = 0, // ניתן להוסיף לוגיקה לשליפת PR count
+                PullRequestCount = 0,          // ניתן להוסיף לוגיקה נוספת לשליפת PR count
                 HtmlUrl = repo.HtmlUrl
             });
+        }
 
-            return repositories;
+        public async Task<IEnumerable<RepositoryInfo>> RefreshPortfolioAsync()
+        {
+            // הסרת הקאש וחזרה על השליפה
+            _cache.Remove("Portfolio");
+            return await GetPortfolioAsync();
         }
     }
 }
